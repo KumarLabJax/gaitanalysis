@@ -1,0 +1,20 @@
+h5py
+imageio
+imageio-ffmpeg
+# this used to be matplotlib<3 but we get this error during pip install
+# AttributeError: module 'platform' has no attribute 'linux_distribution'
+# see also https://github.com/pymssql/pymssql/issues/586
+# Not sure of other consequences of this change
+matplotlib
+numpy
+# this used to be Pillow==5.2.0. Updating to fix jpeg compile error
+Pillow
+# this used to be scikit-image==0.14.0 updating to fix cython compile issue
+scikit-image
+scipy
+affine
+numpngw
+pandas
+seaborn
+svgwrite
+pyyaml

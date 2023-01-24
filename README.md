@@ -1,6 +1,8 @@
 This is the official repository for our paper:
 [Gait-level analysis of mouse open field behavior using deep learning-based pose estimation](https://doi.org/10.1101/2020.12.29.424780).
 
+[Zenodo link for models](https://zenodo.org/record/6380163)
+
 # Installation
 
 Before starting make sure you have `python3` installed. This code has been developed and tested on `python 3.8.10`. The recommended approach to installing dependencies is to use a virtual like:

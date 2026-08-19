@@ -4,6 +4,9 @@ import h5py
 import numpy as np
 import urllib.parse as urlparse
 
+import gaitinference as ginf
+import phase_features
+
 
 ALL_STRIDES_MEASURES_TO_SUMMARIZE = [
     'speed_cm_per_sec',
@@ -51,6 +54,51 @@ NAME_MAPPINGS = {
     'median_body_length_cm': 'Body Length',
 }
 
+# Dual-method columns (see phase_features.py): PeakOffset/TroughOffset via
+# gaitinference's own per-stride method (PerStride), plus Amplitude/
+# PeakOffset/TroughOffset via averaging the interpolated stride curves
+# together first (AverageFirst). Appended after the columns above --
+# purely additive, existing columns/values are unaffected. AverageFirst
+# has no Variance companion: it's one number per video, not a per-stride
+# distribution.
+DUAL_METHOD_LANDMARK_LABELS = {
+    'Base Tail': 'Tail Base',
+    'Nose': 'Nose',
+    'Tip Tail': 'Tail Tip',
+}
+
+
+def dual_method_header_columns():
+    columns = []
+
+    for label in DUAL_METHOD_LANDMARK_LABELS.values():
+        columns.append('Peak Offset ' + label)
+        columns.append('Peak Offset ' + label + ' Variance')
+        columns.append('Trough Offset ' + label)
+        columns.append('Trough Offset ' + label + ' Variance')
+        columns.append('Amplitude ' + label + ' Average First')
+        columns.append('Peak Offset ' + label + ' Average First')
+        columns.append('Trough Offset ' + label + ' Average First')
+
+    return columns
+
+
+def dual_method_row_values(dual_results):
+    values = []
+
+    for landmark_key in DUAL_METHOD_LANDMARK_LABELS:
+        result = dual_results[landmark_key]
+
+        values.append(str(result['PeakOffset_PerStride']))
+        values.append(str(result['PeakOffset_PerStride_Variance']))
+        values.append(str(result['TroughOffset_PerStride']))
+        values.append(str(result['TroughOffset_PerStride_Variance']))
+        values.append(str(result['Amplitude_AverageFirst']))
+        values.append(str(result['PeakOffset_AverageFirst']))
+        values.append(str(result['TroughOffset_AverageFirst']))
+
+    return values
+
 # Example usage:
 #
 #   for speed in 10 15 20 25
@@ -77,6 +125,16 @@ def main():
         choices=['10', '15', '20', '25']
     )
 
+    parser.add_argument(
+        '--phase-curves-output-dir',
+        default=None,
+        help=(
+            'If given, additionally write one phase-curve CSV per speed '
+            'bin (10, 15, 20, 25) into this directory, for plotting. '
+            'Not written unless this is set.'
+        ),
+    )
+
     args = parser.parse_args()
 
     bin_name = 'speed_{}_ang_vel_neg20'.format(args.speed)
@@ -86,6 +144,7 @@ def main():
         header.append(NAME_MAPPINGS[measure])
         # header.append(measure + '_median')
         header.append(NAME_MAPPINGS[measure] + ' Variance')
+    header.extend(dual_method_header_columns())
 
     print(','.join(header))
 
@@ -111,7 +170,20 @@ def main():
                     # curr_row.append(str(np.median(values)))
                     curr_row.append(str(np.var(values)))
 
+                strides = list(ginf.restore_stride_points_shape(
+                    group['bins'][bin_name]['normalized_stride_points']
+                ))
+                dual_results = phase_features.summarize_strides_dual(strides)
+                curr_row.extend(dual_method_row_values(dual_results))
+
                 print(','.join(curr_row))
+
+        if args.phase_curves_output_dir is not None:
+            phase_features.export_phase_curves_all_bins(
+                gait_h5,
+                phase_features.CANONICAL_SPEED_BINS,
+                args.phase_curves_output_dir,
+            )
 
 
 if __name__ == '__main__':

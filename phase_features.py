@@ -5,25 +5,16 @@ export for plotting.
 
 Two ways to summarize a landmark's swing across a recording's strides:
 
-AverageFirst
-    Resample every stride onto a common phase axis, average the
-    (self-centered) curves together, then read peak/trough off that one
-    averaged curve.
+PerStride (gaitinference's own method)
+    cyclic-spline-interpolate each stride individually (spline_interpolate), 
+    measure its own peak/trough (lat_disp_amp / lat_disp_phase), then 
+    aggregate those per-stride numbers across strides -- arithmetic mean 
+    for amplitude, circular mean/variance for phase (phase wraps at 0%/100%).
 
-PerStride
-    gaitinference's own method: cyclic-spline-interpolate each stride
-    individually (spline_interpolate), measure its own peak/trough
-    (lat_disp_amp / lat_disp_phase), then aggregate those per-stride
-    numbers across strides -- arithmetic mean for amplitude, circular
-    mean/variance for phase (phase wraps at 0%/100%, so a plain mean is
-    not meaningful there).
+AverageFirst (this one)
+    Average every stride within a video first, then read amplitude and phases 
+    off that one averaged curve.
 
-TroughOffset has no gaitinference.py equivalent -- it only ever computes
-argmax (lat_disp_phase). lat_disp_trough_phase (gaitinference.py) adds
-the argmin counterpart used here.
-
-Everything here depends directly on gaitinference.py and reuses its
-constants and per-stride math rather than duplicating it.
 """
 
 import os
@@ -46,9 +37,6 @@ LANDMARKS = {
 DEFAULT_NUM_INTERP_FRAMES = 60
 
 OFFICIAL_INTERP_FRAMES = 360
-
-CANONICAL_SPEED_BINS = [10, 15, 20, 25]
-
 
 def phase_axis(num_interp_frames):
     """
@@ -76,7 +64,6 @@ def center_strides(lateral_values):
     Center each stride around its own mean lateral position.
 
     lateral_values : ndarray, shape (n_strides, n_phase_points, ...)
-        Centers along axis 1; any trailing landmark axis is preserved.
     """
     stride_means = np.mean(
         lateral_values,
@@ -91,9 +78,7 @@ def _per_stride_interpolate(stride):
     """
     Cyclic-spline-interpolate one stride to OFFICIAL_INTERP_FRAMES points
     across all 12 landmarks/2 dims, matching
-    gaitinference.add_lateral_displacement_to_strides(). Falls back to the
-    stride's raw values on the same scipy TypeError that function guards
-    against (https://github.com/scipy/scipy/issues/7589).
+    gaitinference.add_lateral_displacement_to_strides(). 
     """
     try:
         frame_count, point_count, dim_count = stride.shape

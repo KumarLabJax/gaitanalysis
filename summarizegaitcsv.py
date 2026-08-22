@@ -120,7 +120,8 @@ def main():
 
     parser.add_argument(
         '--speed',
-        help='the speed bin to use (in cm/sec)',
+        nargs='+',
+        help='the speed bin(s) to use (in cm/sec)',
         required=True,
         choices=['10', '15', '20', '25']
     )
@@ -137,9 +138,7 @@ def main():
 
     args = parser.parse_args()
 
-    bin_name = 'speed_{}_ang_vel_neg20'.format(args.speed)
-
-    header = ['NetworkFilename', 'Stride Count'] + [NAME_MAPPINGS[a] for a in VIDEO_ATTRIBUTES]
+    header = ['NetworkFilename', 'Speed Bin', 'Stride Count'] + [NAME_MAPPINGS[a] for a in VIDEO_ATTRIBUTES]
     for measure in ALL_STRIDES_MEASURES_TO_SUMMARIZE + BINNED_MEASURES_TO_SUMMARIZE:
         header.append(NAME_MAPPINGS[measure])
         # header.append(measure + '_median')
@@ -149,39 +148,43 @@ def main():
     print(','.join(header))
 
     with h5py.File(args.gait_h5, 'r') as gait_h5:
-        for grp_name, group in gait_h5.items():
-            if 'bins' in group and bin_name in group['bins']:
-                grp_name = urlparse.unquote(grp_name)
-                curr_row = [grp_name]
-                curr_row.append(str(group['bins'][bin_name].attrs['stride_count']))
+        for speed in args.speed:
+            bin_name = 'speed_{}_ang_vel_neg20'.format(speed)
 
-                for attr in VIDEO_ATTRIBUTES:
-                    curr_row.append(str(group.attrs[attr]))
+            for grp_name, group in gait_h5.items():
+                if 'bins' in group and bin_name in group['bins']:
+                    grp_name = urlparse.unquote(grp_name)
+                    curr_row = [grp_name]
+                    curr_row.append(str(speed))
+                    curr_row.append(str(group['bins'][bin_name].attrs['stride_count']))
 
-                for measure in ALL_STRIDES_MEASURES_TO_SUMMARIZE:
-                    values = group['all_strides'][measure][:]
-                    curr_row.append(str(np.mean(values)))
-                    # curr_row.append(str(np.median(values)))
-                    curr_row.append(str(np.var(values)))
+                    for attr in VIDEO_ATTRIBUTES:
+                        curr_row.append(str(group.attrs[attr]))
 
-                for measure in BINNED_MEASURES_TO_SUMMARIZE:
-                    values = group['bins'][bin_name][measure][:]
-                    curr_row.append(str(np.mean(values)))
-                    # curr_row.append(str(np.median(values)))
-                    curr_row.append(str(np.var(values)))
+                    for measure in ALL_STRIDES_MEASURES_TO_SUMMARIZE:
+                        values = group['all_strides'][measure][:]
+                        curr_row.append(str(np.mean(values)))
+                        # curr_row.append(str(np.median(values)))
+                        curr_row.append(str(np.var(values)))
 
-                strides = list(ginf.restore_stride_points_shape(
-                    group['bins'][bin_name]['normalized_stride_points']
-                ))
-                dual_results = phase_features.summarize_strides_dual(strides)
-                curr_row.extend(dual_method_row_values(dual_results))
+                    for measure in BINNED_MEASURES_TO_SUMMARIZE:
+                        values = group['bins'][bin_name][measure][:]
+                        curr_row.append(str(np.mean(values)))
+                        # curr_row.append(str(np.median(values)))
+                        curr_row.append(str(np.var(values)))
 
-                print(','.join(curr_row))
+                    strides = list(ginf.restore_stride_points_shape(
+                        group['bins'][bin_name]['normalized_stride_points']
+                    ))
+                    dual_results = phase_features.summarize_strides_dual(strides)
+                    curr_row.extend(dual_method_row_values(dual_results))
+
+                    print(','.join(curr_row))
 
         if args.phase_curves_output_dir is not None:
             phase_features.export_phase_curves_all_bins(
                 gait_h5,
-                phase_features.CANONICAL_SPEED_BINS,
+                [int(speed) for speed in args.speed],
                 args.phase_curves_output_dir,
             )
 

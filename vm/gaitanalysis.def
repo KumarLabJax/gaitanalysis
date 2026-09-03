@@ -1,0 +1,30 @@
+Bootstrap: docker
+from: python:3.12-bookworm
+
+%files
+	__init__.py /gait-analysis/__init__.py
+	findframe.py /gait-analysis/findframe.py
+	gaitinference.py /gait-analysis/gaitinference.py
+	gaitmodeling.py /gait-analysis/gaitmodeling.py
+	gaitplt.py /gait-analysis/gaitplt.py
+	gengaitstats.py /gait-analysis/gengaitstats.py
+	phase_features.py /gait-analysis/phase_features.py
+	requirements.txt /gait-analysis/requirements.txt
+	scripts /gait-analysis/scripts
+	summarizegaitcsv.py /gait-analysis/summarizegaitcsv.py
+	vidplot.py /gait-analysis/vidplot.py
+
+%post
+	apt-get update
+	export DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC
+	# Base image-format + video libs, matching sleap-io-0.2.0.def's own
+	# image-processing dependencies (imageio/imageio-ffmpeg/Pillow/
+	# scikit-image all need these).
+	apt-get install -y ffmpeg libsm6 libxext6 libjpeg62-turbo-dev zlib1g-dev
+
+	pip install -r /gait-analysis/requirements.txt
+
+	python3 -c "import sys; sys.path.insert(0, '/gait-analysis'); import gaitinference, phase_features; print('gaitanalysis OK:', gaitinference.__file__)"
+
+%environment
+	export PYTHONPATH=/gait-analysis:$PYTHONPATH

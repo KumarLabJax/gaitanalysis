@@ -55,8 +55,8 @@ def peakdet(v, delta, x = None):
     if delta <= 0:
         raise Exception('Input argument delta must be positive')
 
-    mn, mx = np.Inf, np.NINF
-    mnpos, mxpos = np.NaN, np.NaN
+    mn, mx = np.inf, -np.inf
+    mnpos, mxpos = np.nan, np.nan
     lookformax = True
 
     for i in np.arange(len(v)):
@@ -574,7 +574,7 @@ def add_median_xy_pos_to_strides(tracks, points, open_field_dims=None):
                 norm_x = float('nan')
                 norm_y = float('nan')
 
-            stride.median_position_proportional_xy = np.array([norm_x, norm_y], dtype=np.float)
+            stride.median_position_proportional_xy = np.array([norm_x, norm_y], dtype=float)
 
 
 #def add_conf_to_strides(tracks, lr_paw_conf, rr_paw_conf, lf_paw_conf, rf_paw_conf, base_tail_conf, tip_tail_conf, nose_conf):
@@ -738,7 +738,7 @@ def mark_bad_strides(tracks, group, cm_per_px=CM_PER_PIXEL):
 
 def _smooth(vec, smoothing_window):
     if smoothing_window <= 1 or len(vec) == 0:
-        return vec.astype(np.float)
+        return vec.astype(float)
     else:
         assert smoothing_window % 2 == 1, 'expected smoothing_window to be odd'
         half_conv_len = smoothing_window // 2
@@ -781,7 +781,7 @@ def calc_speed(group, point_index,
 
 def get_distance_traveled_px(xy_pos, xy_conf, smoothing_window):
 
-    xy_pos = np.array(xy_pos, copy=True, dtype=np.float)
+    xy_pos = np.array(xy_pos, copy=True, dtype=float)
 
     # only consider frames over our confidence threshold
     good_frames = xy_conf >= MIN_CONF_THRESH
@@ -1403,6 +1403,19 @@ def lat_disp_phase(normalized_stride_points):
         stride_ys = normalized_stride_points[:, :, 1]
         stride_argmax = stride_ys.argmax(0)
         stride_phase_offset = stride_argmax / (num_frames - 1)
+
+        return stride_phase_offset
+
+
+def lat_disp_trough_phase(normalized_stride_points):
+    num_frames, num_points, _ = normalized_stride_points.shape
+
+    if num_frames <= 2:
+        return np.full([num_points], float('nan'))
+    else:
+        stride_ys = normalized_stride_points[:, :, 1]
+        stride_argmin = stride_ys.argmin(0)
+        stride_phase_offset = stride_argmin / (num_frames - 1)
 
         return stride_phase_offset
 
